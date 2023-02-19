@@ -6,6 +6,7 @@ use crate::history::History;
 use crate::piece::Piece;
 use crate::player::Player;
 use crate::position::Position;
+use crate::errors::GameErrors;
 use crate::{board::Board, game_type::GameType};
 use serde::{Deserialize, Serialize};
 
