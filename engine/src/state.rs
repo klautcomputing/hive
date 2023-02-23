@@ -1,5 +1,6 @@
 use crate::bug::Bug;
 use crate::color::Color;
+use crate::game_error::GameError;
 use crate::game_result::GameResult;
 use crate::hasher::Hasher;
 use crate::history::History;
@@ -53,18 +54,18 @@ impl State {
         }
     }
 
-    pub fn new_from_history(history: &History) -> Self {
+    pub fn new_from_history(history: &History) -> Result<Self, GameError> {
         let mut tournament = true;
         // Did white open with a Queen?
         if let Some((piece_str, _)) = history.moves.get(0) {
-            let piece = Piece::from_string(piece_str);
+            let piece = Piece::from_string(piece_str)?;
             if piece.bug == Bug::Queen {
                 tournament = false;
             }
         }
         // Did black open with a Queen?
         if let Some((piece_str, _)) = history.moves.get(1) {
-            let piece = Piece::from_string(piece_str);
+            let piece = Piece::from_string(piece_str)?;
             if piece.bug == Bug::Queen {
                 tournament = false;
             }
@@ -72,16 +73,20 @@ impl State {
         let mut state = State::new(history.game_type, tournament);
         state.history = history.clone();
         for (piece, pos) in history.moves.iter() {
-            state.play_turn_from_notation(piece, pos);
+            state.play_turn_from_notation(piece, pos)?;
         }
-        state
+        Ok(state)
     }
 
     pub fn queen_allowed(&self) -> bool {
         self.turn > 1 || !self.tournament
     }
 
-    pub fn play_turn_from_notation(&mut self, piece: &str, position: &str) {
+    pub fn play_turn_from_notation(
+        &mut self,
+        piece: &str,
+        position: &str,
+    ) -> Result<(), GameError> {
         match piece {
             "pass" => {
                 if self.last_turn == LastTurn::Shutout {
@@ -89,18 +94,22 @@ impl State {
                     // we handled this in shutout already
                     // Don't do anything
                 } else {
-                    panic!(
-                        "\nProcessing turn: #{}\nThis is not a valid pass!",
-                        self.turn
-                    );
+                    return Err(GameError::InvalidMove {
+                        piece: "NA".to_string(),
+                        from: "NA".to_string(),
+                        to: "NA".to_string(),
+                        turn: self.turn,
+                        reason: "Trying to pass when there are available moves".to_string(),
+                    });
                 }
             }
             _ => {
-                let piece = Piece::from_string(piece);
-                let target_position = Position::from_string(position, &self.board);
-                self.play_turn(piece, target_position);
+                let piece = Piece::from_string(piece)?;
+                let target_position = Position::from_string(position, &self.board)?;
+                self.play_turn(piece, target_position)?;
             }
         }
+        Ok(())
     }
 
     fn update_history(&mut self, piece: Piece, target_position: Position) {
@@ -184,17 +193,18 @@ impl State {
         self.hasher.record_board_state(&self.board);
     }
 
-    pub fn play_turn(&mut self, piece: Piece, target_position: Position) {
-        let moves = self.board.moves(&self.turn_color);
-
+    pub fn play_turn(&mut self, piece: Piece, target_position: Position) -> Result<(), GameError> {
         // If the piece is already in play, it's a move
         if self.board.piece_already_played(&piece) {
             let current_position = self.board.position(&piece);
             if self.board.pinned(&current_position) {
-                panic!(
-                    "Invalid history: Piece {} at pos {} is pinned!",
-                    piece, current_position
-                );
+                return Err(GameError::InvalidMove {
+                    piece: piece.to_string(),
+                    from: current_position.to_string(),
+                    to: target_position.to_string(),
+                    turn: self.turn,
+                    reason: "Piece is pinned".to_string(),
+                });
             }
             // remove the piece from its current location
             if !self.board.is_valid_move(
@@ -203,31 +213,43 @@ impl State {
                 &current_position,
                 &target_position,
             ) {
-                println!("Board state is: \n{}", self.board);
-                panic!(
-                    "Not a legal move! \n Turn is {:?} color is {:?}\n Trying to move {piece} from {current_position} to
-                       {target_position} \n But valid target positions are only: {:?}\n All valid moves are: {:?}",
-                       self.turn, self.turn_color, moves.get(&(piece, current_position)).unwrap_or(&Vec::new()), moves
-                );
+                return Err(GameError::InvalidMove {
+                    piece: piece.to_string(),
+                    from: current_position.to_string(),
+                    to: target_position.to_string(),
+                    turn: self.turn,
+                    reason: "This move isn't valid.".to_string(),
+                });
             }
             self.last_turn = LastTurn::Move(current_position, target_position);
             self.board
-                .move_piece(&piece, &current_position, &target_position);
+                .move_piece(&piece, &current_position, &target_position, self.turn)?;
         } else {
             // let's spawn the piece
             if piece.bug != Bug::Queen && self.board.queen_required(self.turn, &piece.color) {
-                panic!("Queen needs to be spawned");
+                return Err(GameError::InvalidSpawn {
+                    piece: piece.to_string(),
+                    position: target_position.to_string(),
+                    turn: self.turn,
+                    reason: "Queen is required".to_string(),
+                });
             }
             if self.board.spawnable(&piece.color, &target_position) {
                 self.board.insert(&target_position, piece);
                 self.last_turn = LastTurn::Move(target_position, target_position);
             } else {
-                panic!("Can't spawn here!");
+                return Err(GameError::InvalidSpawn {
+                    piece: piece.to_string(),
+                    position: target_position.to_string(),
+                    turn: self.turn,
+                    reason: format!("{} is not allowed to spawn here", self.turn_color),
+                });
             }
         }
         self.update_history(piece, target_position);
         self.update_hasher();
         self.next_turn();
         self.shutout();
+        Ok(())
     }
 }

@@ -2,7 +2,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::{board::Board, piece::Piece, direction::Direction};
+use crate::{board::Board, direction::Direction, game_error::GameError, piece::Piece};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct Position(pub i8, pub i8);
@@ -78,14 +78,14 @@ impl Position {
         }
     }
 
-    pub fn from_string(s: &str, board: &Board) -> Position {
+    pub fn from_string(s: &str, board: &Board) -> Result<Position, GameError> {
         if s.starts_with('.') {
-            return Position(0, 0);
+            return Ok(Position(0, 0));
         }
 
         let re = Regex::new(r"([-/\\]?)([wb][ABGMLPSQ]\d?)([-/\\]?)").unwrap();
         let cap = re.captures(s).unwrap();
-        let piece = Piece::from_string(&cap[2]);
+        let piece = Piece::from_string(&cap[2])?;
         let mut position = board.position(&piece);
         if !cap[1].is_empty() {
             match &cap[1] {
@@ -98,8 +98,10 @@ impl Position {
                 "/" => {
                     position = position.to(&Direction::SW);
                 }
-                _ => {
-                    panic!("Not a valid direction");
+                any => {
+                    return Err(GameError::InvalidDirection {
+                        direction: any.to_string(),
+                    })
                 }
             }
         }
@@ -114,12 +116,14 @@ impl Position {
                 "\\" => {
                     position = position.to(&Direction::SE);
                 }
-                _ => {
-                    panic!("Not a valid direction");
+                any => {
+                    return Err(GameError::InvalidDirection {
+                        direction: any.to_string(),
+                    })
                 }
             }
         }
-        position
+        Ok(position)
     }
 }
 
