@@ -131,7 +131,6 @@ impl State {
             // no piece at the current position, so it's a spawn or a move
             if let Some(neighbor_pos) = self.board.positions_taken_around(&target_position).get(0) {
                 let neighbor_piece = self.board.top_piece(neighbor_pos);
-                //let dir = neighbor_pos.direction(&target_position);
                 let dir = neighbor_pos.direction(&target_position);
                 pos = dir.to_history_string(neighbor_piece.to_string());
             }

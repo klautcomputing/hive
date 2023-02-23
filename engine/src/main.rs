@@ -4,7 +4,7 @@ use hive_lib::history::History;
 use hive_lib::state::State;
 use std::env;
 
-fn main() -> Result<(), GameError> {
+fn play_game() -> Result<(), GameError> {
     let game: Vec<String> = env::args().collect();
     if let Some(game) = game.get(1) {
         println!("{}", game);
@@ -47,5 +47,12 @@ fn main() -> Result<(), GameError> {
         Ok(())
     } else {
         Err(GameError::NoPgnFile)
+    }
+}
+
+fn main() {
+    match play_game() {
+        Ok(_) => {},
+        Err(e) => eprintln!("{}", e),
     }
 }

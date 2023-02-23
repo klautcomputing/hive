@@ -29,6 +29,8 @@ impl Position {
                 (0, 1) => Direction::SE,
                 (-1, 1) => Direction::SW,
                 (-1, 0) => Direction::W,
+                // This panic is okay, because if it ever gets called with an invalid move, it
+                // implies there is a problem with the engine itself, not with user input
                 (x, y) => panic!(
                     "(even) Direction of movement unknown, from: {} to: {} ({x},{y})",
                     self, to
@@ -43,6 +45,8 @@ impl Position {
             (1, 1) => Direction::SE,
             (0, 1) => Direction::SW,
             (-1, 0) => Direction::W,
+            // This panic is okay, because if it ever gets called with an invalid move, it
+            // implies there is a problem with the engine itself, not with user input
             (x, y) => panic!(
                 "(odd) Direction of movement unknown, from: {} to: {} ({x},{y})",
                 self, to
