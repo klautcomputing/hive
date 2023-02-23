@@ -2,9 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use crate::board::Board;
-use crate::game_type::GameType;
-use crate::position::{Direction, Position};
+use crate::{board::Board, game_type::GameType, direction::Direction, position::Position};
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Serialize, Deserialize, Debug)]
 pub enum Bug {

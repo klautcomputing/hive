@@ -3,6 +3,7 @@
 pub mod board;
 pub mod bug;
 pub mod color;
+pub mod direction;
 pub mod hasher;
 pub mod history;
 pub mod piece;
