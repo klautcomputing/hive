@@ -358,17 +358,12 @@ impl Board {
     }
 
     pub fn spawns_left(&self, color: &Color, game_type: GameType) -> bool {
-        if self
-            .reserve(color, game_type)
+        let has_reserve_bugs = self.reserve(color, game_type)
             .iter()
             .filter(|(_, v)| **v > 0)
-            .collect::<HashMap<&Bug, &i8>>()
-            .is_empty()
-            || self.spawnable_positions(color).is_empty()
-        {
-            return false;
-        }
-        return true;
+            .count() > 0;
+        let has_spawnable_positions = self.spawnable_positions(color).len() > 0;
+        return has_reserve_bugs && has_spawnable_positions;
     }
 
     pub fn reserve(&self, color: &Color, game_type: GameType) -> HashMap<Bug, i8> {
