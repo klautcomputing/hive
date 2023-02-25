@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use crate::{board::Board, game_type::GameType, direction::Direction, position::Position, game_error::GameError};
+use crate::{
+    board::Board, direction::Direction, game_error::GameError, game_type::GameType,
+    position::Position,
+};
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Serialize, Deserialize, Debug)]
 pub enum Bug {
@@ -78,7 +81,10 @@ impl Bug {
             "P" => Ok(Bug::Pillbug),
             "Q" => Ok(Bug::Queen),
             "S" => Ok(Bug::Spider),
-            any => Err(GameError::InvalidBug { bug: any.to_string() }),
+            any => Err(GameError::ParsingError {
+                found: any.to_string(),
+                typ: "bug string".to_string(),
+            }),
         }
     }
 
@@ -91,10 +97,16 @@ impl Bug {
             (Bug::Spider, 2),
         ]);
         match game_type {
-            GameType::Base => {},
-            GameType::M => {bugs.insert(Bug::Mosquito, 1);}
-            GameType::L => {bugs.insert(Bug::Ladybug, 1);}
-            GameType::P => {bugs.insert(Bug::Pillbug, 1);}
+            GameType::Base => {}
+            GameType::M => {
+                bugs.insert(Bug::Mosquito, 1);
+            }
+            GameType::L => {
+                bugs.insert(Bug::Ladybug, 1);
+            }
+            GameType::P => {
+                bugs.insert(Bug::Pillbug, 1);
+            }
             GameType::ML => {
                 bugs.insert(Bug::Mosquito, 1);
                 bugs.insert(Bug::Ladybug, 1);

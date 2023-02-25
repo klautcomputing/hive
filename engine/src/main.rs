@@ -52,7 +52,7 @@ fn play_game() -> Result<(), GameError> {
 
 fn main() {
     match play_game() {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => eprintln!("{}", e),
     }
 }

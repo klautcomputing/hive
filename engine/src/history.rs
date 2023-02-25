@@ -43,7 +43,8 @@ impl History {
         let header = Regex::new(r"\[.*").unwrap();
         let turn = Regex::new(r"\d+").unwrap();
         let result = Regex::new(r"\[Result").unwrap();
-        let game_type = Regex::new(r#"\[GameType "(Base[+MLP]+)"\]"#).unwrap();
+        let game_type_line = Regex::new(r"\[GameType.*").unwrap();
+        let game_type = Regex::new(r#"\[GameType "(Base[+MLP]?)"\]"#).unwrap();
         match File::open(file_path) {
             Ok(file) => {
                 for line in io::BufReader::new(file).lines().flatten() {
@@ -51,10 +52,13 @@ impl History {
                     if line.len() == 0 {
                         continue;
                     }
-                    if game_type.is_match(&line) {
-                        let caps = game_type.captures(&line).unwrap();
-                        if let Some(mtch) = caps.get(1) {
-                            history.game_type = GameType::from_str(mtch.as_str())?;
+                    if game_type_line.is_match(&line) {
+                        if let Some(caps) = game_type.captures(&line) {
+                            if let Some(mtch) = caps.get(1) {
+                                history.game_type = GameType::from_str(mtch.as_str())?;
+                            }
+                        } else {
+                            return Err(GameError::ParsingError { found: line.to_string(), typ: "game string".to_string() })
                         }
                     }
                     if result.is_match(tokens.first().unwrap()) {

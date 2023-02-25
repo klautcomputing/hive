@@ -31,8 +31,9 @@ impl GameType {
             "Base+MP" => Ok(GameType::MP),
             "Base+LP" => Ok(GameType::LP),
             "Base+MLP" => Ok(GameType::MLP),
-            any => Err(GameError::InvalidGameType {
-                gametype: any.to_string(),
+            any => Err(GameError::ParsingError {
+                found: any.to_string(),
+                typ: "game type string".to_string(),
             }),
         };
     }

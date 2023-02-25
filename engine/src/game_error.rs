@@ -17,12 +17,8 @@ pub enum GameError {
         turn: usize,
         reason: String,
     },
-    #[error("Invalid bug {bug:?}")]
-    InvalidBug { bug: String },
-    #[error("Invalid color {color:?}")]
-    InvalidColor { color: String },
-    #[error("Invalid game {gametype:?} type")]
-    InvalidGameType { gametype: String },
+    #[error("Found {found:?} which is not a valid {typ}")]
+    ParsingError { found: String, typ: String },
     #[error("Result {reported_result:?} doesn't match board endstate {actual_result:?}")]
     ResultMismatch {
         reported_result: GameResult,
