@@ -12,4 +12,5 @@ pub mod history;
 pub mod piece;
 pub mod player;
 pub mod position;
+pub mod puzzle;
 pub mod state;
