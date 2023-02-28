@@ -19,7 +19,7 @@ async fn board_record_move(path: web::Path<(u32, String)>) -> impl Responder {
     let (board_id, board_move) = path.into_inner();
     println!("board_id: {}, move: {}", board_id, board_move);
     let game = "game.txt";
-    let mut history;
+    let history;
     match History::from_filepath(game) {
         Ok(h) => history = h,
         Err(e) => return HttpResponse::BadRequest().body(format!("{}", e)),
@@ -39,7 +39,7 @@ async fn board_record_move(path: web::Path<(u32, String)>) -> impl Responder {
         Err(e) => return HttpResponse::BadRequest().body(format!("{}", e)),
     };
     state.history.write_move(game, state.turn, board_move);
-    HttpResponse::Ok().into()
+    HttpResponse::Ok().finish()
 }
 
 /// WebSocket handshake and start `Echo` actor.
