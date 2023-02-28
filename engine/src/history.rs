@@ -38,72 +38,82 @@ impl History {
         self.moves.push((piece, pos));
     }
 
-    pub fn from_filepath(file_path: &str) -> Result<Self, GameError> {
-        let mut history = History::new();
-        let header = Regex::new(r"\[.*").expect("This regex should compile");
-        let turn = Regex::new(r"\d+").expect("This regex should compile");
+    fn parse_game_result(&mut self, str: &str) {
         let result = Regex::new(r"\[Result").expect("This regex should compile");
+        if result.is_match(str) {
+            match str {
+                "\"1-0\"]" => self.result = GameResult::Winner(Color::White),
+                "\"0-1\"]" => self.result = GameResult::Winner(Color::Black),
+                "\"1/2-1/2\"]" => self.result = GameResult::Draw,
+                _ => self.result = GameResult::Unknown,
+            }
+        }
+    }
+
+    fn parse_game_type(&mut self, line: &str) -> Result<(), GameError> {
         let game_type_line = Regex::new(r"\[GameType.*").expect("This regex should compile");
         let game_type =
             Regex::new(r#"\[GameType "(Base[+MLP]?)"\]"#).expect("This regex should compile");
+        if game_type_line.is_match(&line) {
+            if let Some(caps) = game_type.captures(&line) {
+                if let Some(mtch) = caps.get(1) {
+                    self.game_type = GameType::from_str(mtch.as_str())?;
+                }
+            } else {
+                return Err(GameError::ParsingError {
+                    found: line.to_string(),
+                    typ: "game string".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+    fn parse_turn(&mut self, tokens: &Vec<&str>) -> Result<(), GameError> {
+        let turn = Regex::new(r"\d+").expect("This regex should compile");
+        if let Some(token) = tokens.get(0) {
+            if turn.is_match(token) {
+                if let Some(piece) = tokens.get(1) {
+                    if let Some(position) = tokens.get(2) {
+                        self.moves.push((piece.to_string(), position.to_string()));
+                    } else {
+                        match *piece {
+                            "pass" => {
+                                self.moves.push(("pass".to_string(), "".to_string()));
+                            }
+                            _ if self.moves.is_empty() => {
+                                self.moves.push((piece.to_string(), ".".to_string()));
+                            }
+                            any => {
+                                return Err(GameError::ParsingError {
+                                    found: any.to_owned(),
+                                    typ: format!("move, in self on turn {}", token),
+                                })
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn from_filepath(file_path: &str) -> Result<Self, GameError> {
+        let mut history = History::new();
+        let header = Regex::new(r"\[.*").expect("This regex should compile");
         match File::open(file_path) {
             Ok(file) => {
                 for line in io::BufReader::new(file).lines().flatten() {
-                    let tokens = line.split_whitespace().collect::<Vec<&str>>();
                     if line.len() == 0 {
                         continue;
                     }
-                    if game_type_line.is_match(&line) {
-                        if let Some(caps) = game_type.captures(&line) {
-                            if let Some(mtch) = caps.get(1) {
-                                history.game_type = GameType::from_str(mtch.as_str())?;
-                            }
-                        } else {
-                            return Err(GameError::ParsingError {
-                                found: line.to_string(),
-                                typ: "game string".to_string(),
-                            });
-                        }
-                    }
+                    let tokens = line.split_whitespace().collect::<Vec<&str>>();
+                    history.parse_game_type(&line)?;
                     if let Some(token) = tokens.first() {
-                        if result.is_match(token) {
-                            match tokens.get(1) {
-                                Some(&"\"1-0\"]") => {
-                                    history.result = GameResult::Winner(Color::White)
-                                }
-                                Some(&"\"0-1\"]") => {
-                                    history.result = GameResult::Winner(Color::Black)
-                                }
-                                Some(&"\"1/2-1/2\"]") => history.result = GameResult::Draw,
-                                _ => history.result = GameResult::Unknown,
-                            }
-                        }
+                        history.parse_game_result(token);
                         if header.is_match(token) {
                             continue;
                         }
-                        if turn.is_match(token) {
-                            if let Some(piece) = tokens.get(1) {
-                                if let Some(position) = tokens.get(2) {
-                                    history
-                                        .moves
-                                        .push((piece.to_string(), position.to_string()));
-                                } else {
-                                    match *piece {
-                                        "pass" => {
-                                            history
-                                                .moves
-                                                .push(("pass".to_string(), "".to_string()));
-                                        }
-                                        _ if history.moves.is_empty() => {
-                                            history
-                                                .moves
-                                                .push((piece.to_string(), ".".to_string()));
-                                        }
-                                        any => return Err(GameError::ParsingError { found: any.to_owned(), typ: format!("move, in history on turn {}", token)}),
-                                    }
-                                }
-                            }
-                        }
+                        history.parse_turn(&tokens)?;
                     }
                 }
             }
