@@ -123,14 +123,18 @@ impl State {
             .len()
             > 1
         {
-            let pieces = self.board.board.get(&target_position).unwrap();
+            let pieces = self
+                .board
+                .board
+                .get(&target_position)
+                .expect("Target position cannot be empty because of 'if'");
             let len = pieces.len();
             let second_to_last = pieces[len - 2];
             pos = second_to_last.to_string();
         } else {
             // no piece at the current position, so it's a spawn or a move
             if let Some(neighbor_pos) = self.board.positions_taken_around(&target_position).get(0) {
-                let neighbor_piece = self.board.top_piece(neighbor_pos);
+                let neighbor_piece = self.board.top_piece_trusted(neighbor_pos);
                 let dir = neighbor_pos.direction(&target_position);
                 pos = dir.to_history_string(neighbor_piece.to_string());
             }
@@ -195,7 +199,7 @@ impl State {
     pub fn play_turn(&mut self, piece: Piece, target_position: Position) -> Result<(), GameError> {
         // If the piece is already in play, it's a move
         if self.board.piece_already_played(&piece) {
-            let current_position = self.board.position(&piece);
+            let current_position = self.board.position(&piece)?;
             if self.board.pinned(&current_position) {
                 return Err(GameError::InvalidMove {
                     piece: piece.to_string(),

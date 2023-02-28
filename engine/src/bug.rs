@@ -298,7 +298,7 @@ impl Bug {
             board
                 .neighbors(position)
                 .iter()
-                .flat_map(|pieces| match pieces.last().unwrap().bug {
+                .flat_map(|pieces| match pieces.last().expect("Could not get last piece").bug {
                     Bug::Ant => Bug::ant_moves(position, board),
                     Bug::Beetle => Bug::beetle_moves(position, board),
                     Bug::Grasshopper => Bug::grasshopper_moves(position, board),
@@ -349,7 +349,7 @@ impl Bug {
             moves = moves
                 .iter()
                 .flat_map(|positions| {
-                    Bug::crawl(positions.last().unwrap(), &board)
+                    Bug::crawl(positions.last().expect("Could not get last piece"), &board)
                         .iter()
                         .map(|p| {
                             let mut pos = positions.clone();
@@ -372,7 +372,7 @@ impl Bug {
         });
         let mut positions = moves
             .iter()
-            .map(|positions| positions.last().unwrap().clone())
+            .map(|positions| positions.last().expect("Could not get last piece").clone())
             .collect::<Vec<Position>>();
         positions.sort_unstable();
         positions.dedup();

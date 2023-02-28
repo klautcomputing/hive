@@ -30,9 +30,12 @@ impl fmt::Display for Board {
             }
             for x in min_x..=max_x {
                 match self.board.get(&Position(x, y)) {
-                    Some(piece) => write!(s, "{} ", piece.last().unwrap())?,
-                    None => write!(s, "    ")?,
-                };
+                    Some(piece) => match piece.last() {
+                        Some(last) => write!(s, "{} ", last),
+                        None => unreachable!("Found a piece key but no value"),
+                    },
+                    None => write!(s, "    "),
+                }?
             }
             writeln!(s)?;
         }
@@ -48,6 +51,7 @@ impl Board {
         }
     }
 
+    // TODO this can be removed when we migrate to the new frontend
     pub fn level_iter<'b>(&'b self) -> impl Iterator<Item = (Position, Piece, usize, bool)> + 'b {
         let len = self
             .board
@@ -126,7 +130,7 @@ impl Board {
         target: &Position,
         turn: usize,
     ) -> Result<(), GameError> {
-        if !self.is_top_piece(piece, current) {
+        if !(self.is_top_piece(piece, current)?) {
             return Err(GameError::InvalidMove {
                 piece: piece.to_string(),
                 from: current.to_string(),
@@ -135,12 +139,16 @@ impl Board {
                 reason: "Trying to move a covered piece".to_string(),
             });
         }
-        let piece = self.board.get_mut(current).unwrap().pop().unwrap();
-        if self.board.get(current).unwrap().is_empty() {
-            self.board.remove(current);
+        if let Some(vec) = self.board.get_mut(current) {
+            if let Some(piece) = vec.pop() {
+                if vec.is_empty() {
+                    self.board.remove(current);
+                }
+                self.insert(target, piece);
+                return Ok(());
+            }
         }
-        self.insert(target, piece);
-        Ok(())
+        unreachable!("is_top_piece should have error'd");
     }
 
     pub fn neighbor_is_a(&self, position: &Position, bug: Bug) -> bool {
@@ -149,17 +157,23 @@ impl Board {
             .any(|piece| piece.bug == bug)
     }
 
-    pub fn position(&self, piece: &Piece) -> Position {
-        self.board
-            .iter()
-            .find_map(|(pos, pieces)| {
-                if pieces.contains(piece) {
-                    Some(*pos)
-                } else {
-                    None
-                }
-            })
-            .unwrap()
+    pub fn position(&self, piece: &Piece) -> Result<Position, GameError> {
+        match self.board.iter().find_map(|(pos, pieces)| {
+            if pieces.contains(piece) {
+                Some(*pos)
+            } else {
+                None
+            }
+        }) {
+            Some(pos) => Ok(pos),
+            None => Err(GameError::InvalidMove {
+                piece: piece.to_string(),
+                from: "NA".to_string(),
+                to: "NA".to_string(),
+                turn: 0, // TODO we need think about this
+                reason: "No position found for piece".to_string(),
+            }),
+        }
     }
 
     pub fn piece_already_played(&self, piece: &Piece) -> bool {
@@ -172,10 +186,9 @@ impl Board {
             .filter(|pos| {
                 self.board
                     .get(pos)
-                    .unwrap() // unwrap here is safe because we are got pos from board.keys
+                    .expect("Board has the key, what is wrong here?!")
                     .last()
-                    // this would be a bug in the engine and therefore should panic
-                    .unwrap_or_else(|| panic!("Could not find a piece at pos: {}", pos))
+                    .expect(&format!("Could not find a piece at pos: {}", pos))
                     .is_color(color)
             })
             .cloned()
@@ -200,16 +213,39 @@ impl Board {
         };
     }
 
-    pub fn is_top_piece(&self, piece: &Piece, position: &Position) -> bool {
-        self.board.get(position).unwrap().last().unwrap() == piece
+    // Use this whenever you interact with untrusted input, e.g. user input, frontend input,
+    // history files, etc.
+    pub fn top_piece(&self, position: &Position) -> Result<Piece, GameError> {
+        if let Some(vec) = self.board.get(position) {
+            if let Some(piece) = vec.last() {
+                return Ok(*piece);
+            } else {
+                unreachable!("Found a key in board but no value");
+            }
+        } else {
+            return Err(GameError::NoPieceAtPosition {
+                position: position.to_string(),
+            });
+        }
     }
 
-    pub fn top_piece(&self, position: &Position) -> Piece {
-        *self.board.get(position).unwrap().last().unwrap()
+    // Only use this one when you can guarantee that the board state is correct
+    pub fn top_piece_trusted(&self, position: &Position) -> Piece {
+        *self
+            .board
+            .get(position)
+            .expect("The board should have had this position")
+            .last()
+            .expect("There should be a bug on this position")
+    }
+
+    pub fn is_top_piece(&self, piece: &Piece, position: &Position) -> Result<bool, GameError> {
+        let found = self.top_piece(position)?;
+        Ok(&found == piece)
     }
 
     pub fn top_bug(&self, position: &Position) -> Bug {
-        self.board.get(position).unwrap().last().unwrap().bug
+        self.top_piece_trusted(position).bug
     }
 
     pub fn gated(&self, level: usize, from: &Position, to: &Position) -> bool {
@@ -260,11 +296,14 @@ impl Board {
         let mut moves: HashMap<(Piece, Position), Vec<Position>> = HashMap::new();
         // for all pieces on the board
         for pos in self.board.keys() {
+            // because the only unkown input here is it is okay to use top_piece_trusted here
+            // color, everthing else in known to be correct,
+            let piece = self.top_piece_trusted(pos);
             // that are the correct color
-            if self.top_piece(pos).is_color(color) {
+            if piece.is_color(color) {
                 // let's make sure pieces that were just moved cannot be moved again
                 if let Some(last_moved) = self.last_moved {
-                    if last_moved == (self.top_piece(pos), *pos) {
+                    if last_moved == (piece, *pos) {
                         // now we skip it
                         continue;
                     }
@@ -272,7 +311,7 @@ impl Board {
                 // get all the moves
                 for (start_pos, target_positions) in Bug::available_moves(pos, self) {
                     moves
-                        .entry((self.top_piece(&start_pos), start_pos))
+                        .entry((self.top_piece_trusted(&start_pos), start_pos))
                         .or_default()
                         .append(&mut target_positions.clone());
                 }
@@ -358,10 +397,12 @@ impl Board {
     }
 
     pub fn spawns_left(&self, color: &Color, game_type: GameType) -> bool {
-        let has_reserve_bugs = self.reserve(color, game_type)
+        let has_reserve_bugs = self
+            .reserve(color, game_type)
             .iter()
             .filter(|(_, v)| **v > 0)
-            .count() > 0;
+            .count()
+            > 0;
         let has_spawnable_positions = self.spawnable_positions(color).len() > 0;
         return has_reserve_bugs && has_spawnable_positions;
     }
@@ -457,12 +498,12 @@ mod tests {
             Piece::new(Bug::Queen, Color::Black, Some(1)),
         );
         let mut pieces = vec![Piece::new(Bug::Ant, Color::Black, Some(1))];
-        board.insert(&Position(1, 0), *pieces.last().unwrap());
+        board.insert(&Position(1, 0), *pieces.last().expect("This is in test neighbors"));
         let neighbors = board.neighbors(&Position(0, 0));
         assert_eq!(neighbors, vec![pieces.clone()]);
 
         pieces.push(Piece::new(Bug::Beetle, Color::Black, Some(1)));
-        board.insert(&Position(1, 0), *pieces.last().unwrap());
+        board.insert(&Position(1, 0), *pieces.last().expect("This is in test neighbors"));
         let neighbors = board.neighbors(&Position(0, 0));
         assert_eq!(neighbors, vec![pieces.clone()]);
 
