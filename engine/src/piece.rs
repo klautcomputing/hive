@@ -1,5 +1,6 @@
 use crate::bug::Bug;
 use crate::color::Color;
+use crate::game_error::GameError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -15,14 +16,14 @@ impl Piece {
         Piece { bug, color, order }
     }
 
-    pub fn from_string(s: &str) -> Piece {
-        let color = Color::from_str(&s.chars().next().unwrap().to_string());
-        let bug = Bug::from_str(&s.chars().nth(1).unwrap().to_string());
+    pub fn from_string(s: &str) -> Result<Piece, GameError> {
+        let color = Color::from_str(&s.chars().next().unwrap().to_string())?;
+        let bug = Bug::from_str(&s.chars().nth(1).unwrap().to_string())?;
         let mut order = None;
         if let Some(ch) = s.chars().nth(2) {
             order = Some(ch.to_string().parse().unwrap());
         }
-        Piece::new(bug, color, order)
+        Ok(Piece::new(bug, color, order))
     }
 
     pub fn is_color(&self, color: &Color) -> bool {

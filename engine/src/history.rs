@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 
 use crate::color::Color;
+use crate::game_error::GameError;
 use crate::game_result::GameResult;
 use crate::game_type::GameType;
 use std::fs::OpenOptions;
@@ -37,12 +38,13 @@ impl History {
         self.moves.push((piece, pos));
     }
 
-    pub fn from_filepath(file_path: &str) -> Self {
+    pub fn from_filepath(file_path: &str) -> Result<Self, GameError> {
         let mut history = History::new();
         let header = Regex::new(r"\[.*").unwrap();
         let turn = Regex::new(r"\d+").unwrap();
         let result = Regex::new(r"\[Result").unwrap();
-        let game_type = Regex::new(r#"\[GameType "(Base[+MLP]+)"\]"#).unwrap();
+        let game_type_line = Regex::new(r"\[GameType.*").unwrap();
+        let game_type = Regex::new(r#"\[GameType "(Base[+MLP]?)"\]"#).unwrap();
         match File::open(file_path) {
             Ok(file) => {
                 for line in io::BufReader::new(file).lines().flatten() {
@@ -50,10 +52,13 @@ impl History {
                     if line.len() == 0 {
                         continue;
                     }
-                    if game_type.is_match(&line) {
-                        let caps = game_type.captures(&line).unwrap();
-                        if let Some(mtch) = caps.get(1) {
-                            history.game_type = GameType::from_str(mtch.as_str());
+                    if game_type_line.is_match(&line) {
+                        if let Some(caps) = game_type.captures(&line) {
+                            if let Some(mtch) = caps.get(1) {
+                                history.game_type = GameType::from_str(mtch.as_str())?;
+                            }
+                        } else {
+                            return Err(GameError::ParsingError { found: line.to_string(), typ: "game string".to_string() })
                         }
                     }
                     if result.is_match(tokens.first().unwrap()) {
@@ -85,7 +90,7 @@ impl History {
                 println!("Couldn't open file because: {}", e);
             }
         }
-        history
+        Ok(history)
     }
 
     pub fn write_move(&self, file_name: &str, turn: usize, board_move: String) {
@@ -93,11 +98,8 @@ impl History {
             .append(true)
             .open(file_name)
             .expect("game.txt cannot be written to");
-        if let Err(e) = write!(
-            file,
-            "{}. {}\n",
-            turn, board_move
-        ) {
+        if let Err(e) = write!(file, "{}. {}\n", turn, board_move) {
+            //TODO not sure what to do with this one
             panic!("{}", e);
         }
     }

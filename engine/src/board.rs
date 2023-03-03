@@ -5,11 +5,12 @@ use std::fmt::Write;
 
 use crate::bug::Bug;
 use crate::color::Color;
-use crate::piece::Piece;
 use crate::direction::Direction;
-use crate::position::Position;
+use crate::game_error::GameError;
 use crate::game_result::GameResult;
 use crate::game_type::GameType;
+use crate::piece::Piece;
+use crate::position::Position;
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, PartialEq)]
 pub struct Board {
@@ -102,8 +103,8 @@ impl Board {
             .position_of_piece(&Piece::new(Bug::Queen, Color::Black, None))
             .map(|pos| self.neighbors(&pos).len() == 6);
         return match (black, white) {
-            (Some(true), Some(true)) =>  GameResult::Draw,
-            (Some(true), Some(false)) => GameResult::Winner(Color::Black), 
+            (Some(true), Some(true)) => GameResult::Draw,
+            (Some(true), Some(false)) => GameResult::Winner(Color::Black),
             (Some(false), Some(true)) => GameResult::Winner(Color::White),
             _ => GameResult::Unknown,
         };
@@ -118,15 +119,28 @@ impl Board {
         None
     }
 
-    pub fn move_piece(&mut self, piece: &Piece, current: &Position, target: &Position) {
+    pub fn move_piece(
+        &mut self,
+        piece: &Piece,
+        current: &Position,
+        target: &Position,
+        turn: usize,
+    ) -> Result<(), GameError> {
         if !self.is_top_piece(piece, current) {
-            panic!("Tried to move non top piece!");
+            return Err(GameError::InvalidMove {
+                piece: piece.to_string(),
+                from: current.to_string(),
+                to: target.to_string(),
+                turn,
+                reason: "Trying to move a covered piece".to_string(),
+            });
         }
         let piece = self.board.get_mut(current).unwrap().pop().unwrap();
         if self.board.get(current).unwrap().is_empty() {
             self.board.remove(current);
         }
         self.insert(target, piece);
+        Ok(())
     }
 
     pub fn neighbor_is_a(&self, position: &Position, bug: Bug) -> bool {
@@ -160,6 +174,7 @@ impl Board {
                     .get(pos)
                     .unwrap() // unwrap here is safe because we are got pos from board.keys
                     .last()
+                    // this would be a bug in the engine and therefore should panic
                     .unwrap_or_else(|| panic!("Could not find a piece at pos: {}", pos))
                     .is_color(color)
             })
@@ -343,10 +358,12 @@ impl Board {
     }
 
     pub fn spawns_left(&self, color: &Color, game_type: GameType) -> bool {
-        if self.reserve(color, game_type).iter().filter(|(_, v)| **v > 0).collect::<HashMap<&Bug, &i8>>().is_empty() || self.spawnable_positions(color).is_empty() {
-            return false;
-        }
-        return true;
+        let has_reserve_bugs = self.reserve(color, game_type)
+            .iter()
+            .filter(|(_, v)| **v > 0)
+            .count() > 0;
+        let has_spawnable_positions = self.spawnable_positions(color).len() > 0;
+        return has_reserve_bugs && has_spawnable_positions;
     }
 
     pub fn reserve(&self, color: &Color, game_type: GameType) -> HashMap<Bug, i8> {

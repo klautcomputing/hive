@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use crate::{board::Board, game_type::GameType, direction::Direction, position::Position};
+use crate::{
+    board::Board, direction::Direction, game_error::GameError, game_type::GameType,
+    position::Position,
+};
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Serialize, Deserialize, Debug)]
 pub enum Bug {
@@ -68,17 +71,20 @@ impl Bug {
         .to_string()
     }
 
-    pub fn from_str(s: &str) -> Bug {
+    pub fn from_str(s: &str) -> Result<Bug, GameError> {
         match s {
-            "A" => Bug::Ant,
-            "B" => Bug::Beetle,
-            "G" => Bug::Grasshopper,
-            "L" => Bug::Ladybug,
-            "M" => Bug::Mosquito,
-            "P" => Bug::Pillbug,
-            "Q" => Bug::Queen,
-            "S" => Bug::Spider,
-            any => panic!("That's not a valid bug: {}", any),
+            "A" => Ok(Bug::Ant),
+            "B" => Ok(Bug::Beetle),
+            "G" => Ok(Bug::Grasshopper),
+            "L" => Ok(Bug::Ladybug),
+            "M" => Ok(Bug::Mosquito),
+            "P" => Ok(Bug::Pillbug),
+            "Q" => Ok(Bug::Queen),
+            "S" => Ok(Bug::Spider),
+            any => Err(GameError::ParsingError {
+                found: any.to_string(),
+                typ: "bug string".to_string(),
+            }),
         }
     }
 
@@ -91,10 +97,16 @@ impl Bug {
             (Bug::Spider, 2),
         ]);
         match game_type {
-            GameType::Base => {},
-            GameType::M => {bugs.insert(Bug::Mosquito, 1);}
-            GameType::L => {bugs.insert(Bug::Ladybug, 1);}
-            GameType::P => {bugs.insert(Bug::Pillbug, 1);}
+            GameType::Base => {}
+            GameType::M => {
+                bugs.insert(Bug::Mosquito, 1);
+            }
+            GameType::L => {
+                bugs.insert(Bug::Ladybug, 1);
+            }
+            GameType::P => {
+                bugs.insert(Bug::Pillbug, 1);
+            }
             GameType::ML => {
                 bugs.insert(Bug::Mosquito, 1);
                 bugs.insert(Bug::Ladybug, 1);
