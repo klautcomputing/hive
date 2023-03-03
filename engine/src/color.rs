@@ -33,7 +33,10 @@ impl Color {
         match s {
             "w" => Ok(Color::White),
             "b" => Ok(Color::Black),
-            any => Err(GameError::ParsingError { found: any.to_string(), typ: "color string".to_string() }),
+            any => Err(GameError::ParsingError {
+                found: any.to_string(),
+                typ: "color string".to_string(),
+            }),
         }
     }
 

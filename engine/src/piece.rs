@@ -17,13 +17,23 @@ impl Piece {
     }
 
     pub fn from_string(s: &str) -> Result<Piece, GameError> {
-        let color = Color::from_str(&s.chars().next().unwrap().to_string())?;
-        let bug = Bug::from_str(&s.chars().nth(1).unwrap().to_string())?;
-        let mut order = None;
-        if let Some(ch) = s.chars().nth(2) {
-            order = Some(ch.to_string().parse().unwrap());
+        if let Some(c_chars) = s.chars().next() {
+            let color = Color::from_str(&c_chars.to_string())?;
+            if let Some(b_chars) = s.chars().nth(1) {
+                let bug = Bug::from_str(&b_chars.to_string())?;
+                let mut order = None;
+                if let Some(ch) = s.chars().nth(2) {
+                    if let Ok(ord) = ch.to_string().parse() {
+                        order = Some(ord)
+                    }
+                }
+                return Ok(Piece::new(bug, color, order));
+            }
         }
-        Ok(Piece::new(bug, color, order))
+        return Err(GameError::ParsingError {
+            found: s.to_string(),
+            typ: "piece".to_string(),
+        });
     }
 
     pub fn is_color(&self, color: &Color) -> bool {

@@ -87,47 +87,54 @@ impl Position {
             return Ok(Position(0, 0));
         }
 
-        let re = Regex::new(r"([-/\\]?)([wb][ABGMLPSQ]\d?)([-/\\]?)").unwrap();
-        let cap = re.captures(s).unwrap();
-        let piece = Piece::from_string(&cap[2])?;
-        let mut position = board.position(&piece);
-        if !cap[1].is_empty() {
-            match &cap[1] {
-                "\\" => {
-                    position = position.to(&Direction::NW);
+        let re = Regex::new(r"([-/\\]?)([wb][ABGMLPSQ]\d?)([-/\\]?)")
+            .expect("This regex should compile");
+        if let Some(cap) = re.captures(s) {
+            let piece = Piece::from_string(&cap[2])?;
+            if let Some(mut position) = board.position(&piece) {
+                if !cap[1].is_empty() {
+                    match &cap[1] {
+                        "\\" => {
+                            position = position.to(&Direction::NW);
+                        }
+                        "-" => {
+                            position = position.to(&Direction::W);
+                        }
+                        "/" => {
+                            position = position.to(&Direction::SW);
+                        }
+                        any => {
+                            return Err(GameError::InvalidDirection {
+                                direction: any.to_string(),
+                            })
+                        }
+                    }
                 }
-                "-" => {
-                    position = position.to(&Direction::W);
+                if !cap[3].is_empty() {
+                    match &cap[3] {
+                        "/" => {
+                            position = position.to(&Direction::NE);
+                        }
+                        "-" => {
+                            position = position.to(&Direction::E);
+                        }
+                        "\\" => {
+                            position = position.to(&Direction::SE);
+                        }
+                        any => {
+                            return Err(GameError::InvalidDirection {
+                                direction: any.to_string(),
+                            })
+                        }
+                    }
                 }
-                "/" => {
-                    position = position.to(&Direction::SW);
-                }
-                any => {
-                    return Err(GameError::InvalidDirection {
-                        direction: any.to_string(),
-                    })
-                }
+                return Ok(position);
             }
         }
-        if !cap[3].is_empty() {
-            match &cap[3] {
-                "/" => {
-                    position = position.to(&Direction::NE);
-                }
-                "-" => {
-                    position = position.to(&Direction::E);
-                }
-                "\\" => {
-                    position = position.to(&Direction::SE);
-                }
-                any => {
-                    return Err(GameError::InvalidDirection {
-                        direction: any.to_string(),
-                    })
-                }
-            }
-        }
-        Ok(position)
+        return Err(GameError::ParsingError {
+            found: s.to_string(),
+            typ: "position".to_string(),
+        });
     }
 }
 

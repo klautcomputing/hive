@@ -132,14 +132,15 @@ impl Bug {
         let mut moves = HashMap::new();
         if !board.pinned(position) {
             let positions = match board.top_bug(position) {
-                Bug::Ant => Bug::ant_moves(position, board),
-                Bug::Beetle => Bug::beetle_moves(position, board),
-                Bug::Grasshopper => Bug::grasshopper_moves(position, board),
-                Bug::Ladybug => Bug::ladybug_moves(position, board),
-                Bug::Mosquito => Bug::mosquito_moves(position, board),
-                Bug::Pillbug => Bug::pillbug_moves(position, board),
-                Bug::Queen => Bug::queen_moves(position, board),
-                Bug::Spider => Bug::spider_moves(position, board),
+                Some(Bug::Ant) => Bug::ant_moves(position, board),
+                Some(Bug::Beetle) => Bug::beetle_moves(position, board),
+                Some(Bug::Grasshopper) => Bug::grasshopper_moves(position, board),
+                Some(Bug::Ladybug) => Bug::ladybug_moves(position, board),
+                Some(Bug::Mosquito) => Bug::mosquito_moves(position, board),
+                Some(Bug::Pillbug) => Bug::pillbug_moves(position, board),
+                Some(Bug::Queen) => Bug::queen_moves(position, board),
+                Some(Bug::Spider) => Bug::spider_moves(position, board),
+                None => Vec::new(),
             };
             moves.insert(*position, positions);
         }
@@ -152,8 +153,8 @@ impl Bug {
         board: &Board,
     ) -> HashMap<Position, Vec<Position>> {
         match board.top_bug(position) {
-            Bug::Pillbug => Bug::pillbug_throw(position, board),
-            Bug::Mosquito
+            Some(Bug::Pillbug) => Bug::pillbug_throw(position, board),
+            Some(Bug::Mosquito)
                 if board.level(position) == 1 && board.neighbor_is_a(position, Bug::Pillbug) =>
             {
                 Bug::pillbug_throw(position, board)
@@ -298,16 +299,18 @@ impl Bug {
             board
                 .neighbors(position)
                 .iter()
-                .flat_map(|pieces| match pieces.last().unwrap().bug {
-                    Bug::Ant => Bug::ant_moves(position, board),
-                    Bug::Beetle => Bug::beetle_moves(position, board),
-                    Bug::Grasshopper => Bug::grasshopper_moves(position, board),
-                    Bug::Ladybug => Bug::ladybug_moves(position, board),
-                    Bug::Mosquito => vec![],
-                    Bug::Pillbug => Bug::pillbug_moves(position, board),
-                    Bug::Queen => Bug::queen_moves(position, board),
-                    Bug::Spider => Bug::spider_moves(position, board),
-                })
+                .flat_map(
+                    |pieces| match pieces.last().expect("Could not get last piece").bug {
+                        Bug::Ant => Bug::ant_moves(position, board),
+                        Bug::Beetle => Bug::beetle_moves(position, board),
+                        Bug::Grasshopper => Bug::grasshopper_moves(position, board),
+                        Bug::Ladybug => Bug::ladybug_moves(position, board),
+                        Bug::Mosquito => vec![],
+                        Bug::Pillbug => Bug::pillbug_moves(position, board),
+                        Bug::Queen => Bug::queen_moves(position, board),
+                        Bug::Spider => Bug::spider_moves(position, board),
+                    },
+                )
                 .collect()
         } else {
             Bug::beetle_moves(position, board)
@@ -349,7 +352,7 @@ impl Bug {
             moves = moves
                 .iter()
                 .flat_map(|positions| {
-                    Bug::crawl(positions.last().unwrap(), &board)
+                    Bug::crawl(positions.last().expect("Could not get last piece"), &board)
                         .iter()
                         .map(|p| {
                             let mut pos = positions.clone();
@@ -372,7 +375,7 @@ impl Bug {
         });
         let mut positions = moves
             .iter()
-            .map(|positions| positions.last().unwrap().clone())
+            .map(|positions| positions.last().expect("Could not get last piece").clone())
             .collect::<Vec<Position>>();
         positions.sort_unstable();
         positions.dedup();
