@@ -10,10 +10,6 @@ pub enum GameError {
         turn: usize,
         reason: String,
     },
-    #[error("No piece found at position {position}")]
-    NoPieceAtPosition{
-        position: String,
-    },
     #[error("Invalid spawn of piece {piece} at position {position} on turn {turn}")]
     InvalidSpawn {
         piece: String,

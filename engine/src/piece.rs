@@ -30,7 +30,10 @@ impl Piece {
                 return Ok(Piece::new(bug, color, order));
             }
         }
-        return Err(GameError::ParsingError { found: s.to_string(), typ: "piece".to_string() });
+        return Err(GameError::ParsingError {
+            found: s.to_string(),
+            typ: "piece".to_string(),
+        });
     }
 
     pub fn is_color(&self, color: &Color) -> bool {

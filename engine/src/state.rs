@@ -112,29 +112,14 @@ impl State {
         Ok(())
     }
 
-    fn update_history(&mut self, piece: Piece, target_position: Position) {
+    fn update_history(&mut self, piece: &Piece, target_position: &Position) {
         // if there's no piece on the board yet use "."
         let mut pos = ".".to_string();
-        if self
-            .board
-            .board
-            .get(&target_position)
-            .unwrap_or(&vec![])
-            .len()
-            > 1
-        {
-            let pieces = self
-                .board
-                .board
-                .get(&target_position)
-                .expect("Target position cannot be empty because of 'if'");
-            let len = pieces.len();
-            let second_to_last = pieces[len - 2];
-            pos = second_to_last.to_string();
+        if let Some(top_piece) = self.board.top_piece(&target_position) {
+            pos = top_piece.to_string();
         } else {
             // no piece at the current position, so it's a spawn or a move
-            if let Some(neighbor_pos) = self.board.positions_taken_around(&target_position).get(0) {
-                let neighbor_piece = self.board.top_piece_trusted(neighbor_pos);
+            if let Some((neighbor_piece, neighbor_pos)) = self.board.get_neighbor(target_position) {
                 let dir = neighbor_pos.direction(&target_position);
                 pos = dir.to_history_string(neighbor_piece.to_string());
             }
@@ -199,7 +184,13 @@ impl State {
     pub fn play_turn(&mut self, piece: Piece, target_position: Position) -> Result<(), GameError> {
         // If the piece is already in play, it's a move
         if self.board.piece_already_played(&piece) {
-            let current_position = self.board.position(&piece)?;
+            let current_position = self.board.position(&piece).ok_or(GameError::InvalidMove {
+                piece: piece.to_string(),
+                from: "NA".to_string(),
+                to: target_position.to_string(),
+                turn: self.turn,
+                reason: "This piece is not on the board".to_string(),
+            })?;
             if self.board.pinned(&current_position) {
                 return Err(GameError::InvalidMove {
                     piece: piece.to_string(),
@@ -249,7 +240,7 @@ impl State {
                 });
             }
         }
-        self.update_history(piece, target_position);
+        self.update_history(&piece, &target_position);
         self.update_hasher();
         self.next_turn();
         self.shutout();
